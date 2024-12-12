@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Table Creator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <h5 style="color: rgb(252, 251, 251);">Created Tables</h5>
+        <ul id="tableList"></ul> <!-- Dynamic table list will be shown here -->
+        <button id="openFormBtn" class="btn btn-primary">Open Form</button>
+    </div>
+
+    <!-- Form Container -->
+    <div id="formContainer" class="form-container">
+        <h2 class="text-center">Dynamic Table Creator</h2>
+        <form id="tableForm">
+            <div class="mb-3">
+                <label for="tableName" class="form-label">Table Name</label>
+                <input type="text" class="form-control" id="tableName" name="tableName" placeholder="Enter table name" required>
+            </div>
+            <div id="fieldsContainer">
+                <div class="row mb-2">
+                    <div class="col">
+                        <input type="text" class="form-control" name="fields[0][name]" placeholder="Column Name" required>
+                    </div>
+                    <div class="col">
+                        <select class="form-control" name="fields[0][type]" required>
+                            <option value="VARCHAR(255)">VARCHAR(255)</option>
+                            <option value="INT">INT</option>
+                            <option value="DATE">DATE</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <button type="button" id="addFieldBtn" class="btn btn-primary mb-3">Add More Fields</button>
+            <button type="submit" class="btn btn-success">Create Table</button>
+        </form>
+    </div>
+
+    <!-- Table Content -->
+    <div id="tableContent" class="content-area mt-4">
+        <!-- Dynamic table content will be displayed here -->
+    </div>
+
+    <script>
+        const openFormBtn = document.getElementById('openFormBtn');
+        const formContainer = document.getElementById('formContainer');
+
+        // Toggle form visibility
+        openFormBtn.addEventListener('click', () => {
+            tableForm.reset();
+            const fieldsContainer = document.getElementById('fieldsContainer');
+            fieldsContainer.innerHTML = `
+                <div class="row mb-2">
+                    <div class="col">
+                        <input type="text" class="form-control" name="fields[0][name]" placeholder="Column Name" required>
+                    </div>
+                    <div class="col">
+                        <select class="form-control" name="fields[0][type]" required>
+                            <option value="VARCHAR(255)">VARCHAR(255)</option>
+                            <option value="INT">INT</option>
+                            <option value="DATE">DATE</option>
+                        </select>
+                    </div>
+                </div>
+            `;
+            fieldIndex = 1;
+            formContainer.classList.toggle('open');
+        });
+
+        let fieldIndex = 1;
+        document.getElementById('addFieldBtn').addEventListener('click', () => {
+            const fieldsContainer = document.getElementById('fieldsContainer');
+            const newField = `
+                <div class="row mb-2">
+                    <div class="col">
+                        <input type="text" class="form-control" name="fields[${fieldIndex}][name]" placeholder="Column Name" required>
+                    </div>
+                    <div class="col">
+                        <select class="form-control" name="fields[${fieldIndex}][type]" required>
+                            <option value="VARCHAR(255)">VARCHAR(255)</option>
+                            <option value="INT">INT</option>
+                            <option value="DATE">DATE</option>
+                        </select>
+                    </div>
+                </div>
+            `;
+            fieldsContainer.insertAdjacentHTML('beforeend', newField);
+            fieldIndex++;
+        });
+
+        document.getElementById('tableForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+
+            fetch('/create-table', {
+                method: 'POST',
+                body: new URLSearchParams(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                const tableList = document.getElementById('tableList');
+                tableList.innerHTML = '';
+                data.forEach(table => {
+                    const li = document.createElement('li');
+                    li.textContent = table['Tables_in_my_database'];
+                    li.addEventListener('click', () => {
+                        const tableName = table['Tables_in_my_database'];
+                        fetch(`/get-table-data?tableName=${tableName}`)
+                            .then(response => response.json())
+                            .then(data => {
+                                const { columns, rows } = data;
+                                let contentHtml = `
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h3>Table: ${tableName}</h3>
+                                        <button id="addRowBtn" class="btn btn-primary">Add Row</button>
+                                    </div>
+                                    <table class="table table-striped table-bordered">
+                                        <thead><tr>
+                                `;
+                                columns.forEach(column => {
+                                    contentHtml += `<th>${column.Field}</th>`;
+                                });
+                                contentHtml += `<th>Actions</th></tr></thead>`;
+                                contentHtml += '<tbody>';
+                                if (rows.length > 0) {
+                                    rows.forEach((row, rowIndex) => {
+                                        contentHtml += '<tr>';
+                                        columns.forEach(column => {
+                                            contentHtml += `<td>${row[column.Field] || ''}</td>`;
+                                        });
+                                        contentHtml += `<td><button class="btn btn-danger btn-sm deleteRowBtn" data-row="${rowIndex}">Delete</button></td>`;
+                                        contentHtml += '</tr>';
+                                    });
+                                } else {
+                                    contentHtml += `<tr><td colspan="${columns.length + 1}" class="text-center">No data available</td></tr>`;
+                                }
+                                contentHtml += '</tbody></table>';
+                                const tableContentContainer = document.getElementById('tableContent');
+                                tableContentContainer.innerHTML = contentHtml;
+
+                                document.getElementById('addRowBtn').addEventListener('click', () => {
+                                    const inputFields = columns.map(column => {
+                                        return `<input type="text" class="form-control" name="rowData[${column.Field}]" placeholder="${column.Field}" required>`;
+                                    }).join('');
+                                    
+                                    const rowForm = `
+                                        <div class="row mb-2">
+                                            ${inputFields}
+                                            <button type="button" id="submitRowBtn" class="btn btn-success">Submit Row</button>
+                                        </div>
+                                    `;
+                                    
+                                    const rowFormContainer = document.createElement('div');
+                                    rowFormContainer.innerHTML = rowForm;
+                                    document.getElementById('tableContent').appendChild(rowFormContainer);
+
+                                    // Submit Row functionality
+                                    document.getElementById('submitRowBtn').addEventListener('click', () => {
+                                        const rowData = {};
+                                        columns.forEach(column => {
+                                            rowData[column.Field] = rowFormContainer.querySelector(`input[name="rowData[${column.Field}]"]`).value;
+                                        });
+
+                                        fetch('/add-row', {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json'
+                                            },
+                                            body: JSON.stringify({ tableName, rowData })
+                                        })
+                                        .then(response => response.json())
+                                        .then(data => {
+                                            if (data.message === 'Row added successfully') {
+                                                alert('Row added successfully');
+
+                                                // Dynamically add the new row
+                                                let newRowHtml = '<tr>';
+                                                columns.forEach(column => {
+                                                    newRowHtml += `<td>${rowData[column.Field] || ''}</td>`;
+                                                });
+                                                newRowHtml += `<td><button class="btn btn-danger btn-sm deleteRowBtn" data-row="${rows.length}">Delete</button></td></tr>`;
+                                                document.querySelector('table tbody').insertAdjacentHTML('beforeend', newRowHtml);
+
+                                                // Remove the row form
+                                                rowFormContainer.remove();
+                                            }
+                                        })
+                                        .catch(error => console.error('Error adding row:', error));
+                                    });
+                                });
+
+                                document.querySelectorAll('.deleteRowBtn').forEach(btn => {
+                                    btn.addEventListener('click', (e) => {
+                                        const rowIndex = e.target.getAttribute('data-row');
+                                        alert(`Delete Row functionality for row ${rowIndex} will go here!`);
+                                    });
+                                });
+                            });
+                    });
+                    tableList.appendChild(li);
+                });
+                formContainer.classList.remove('open');
+            })
+            .catch(err => console.error('Error:', err));
+        });
+    </script>
+</body>
+</html>
