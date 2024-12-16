@@ -196,11 +196,19 @@
                                 });
 
                                 document.querySelectorAll('.deleteRowBtn').forEach(btn => {
-                                    btn.addEventListener('click', (e) => {
-                                        const rowIndex = e.target.getAttribute('data-row');
-                                        alert(`Delete Row functionality for row ${rowIndex} will go here!`);
-                                    });
-                                });
+    btn.addEventListener('click', (e) => {
+        const rowIndex = e.target.getAttribute('data-row');
+        const tableName = document.querySelector('h3').textContent.split(':')[1].trim();
+        const rowId = e.target.parentNode.parentNode.cells[0].textContent;
+
+        fetch(`/delete-data/${tableName}/${rowId}`, { method: 'DELETE' })
+            .then(response => response.text())
+            .then(() => {
+                e.target.parentNode.parentNode.remove();
+            })
+            .catch(error => console.error('Error deleting row:', error));
+    });
+});
                             });
                     });
                     tableList.appendChild(li);
@@ -209,6 +217,11 @@
             })
             .catch(err => console.error('Error:', err));
         });
+
+
+        
+
+        
     </script>
 </body>
 </html>
