@@ -11,9 +11,9 @@ app.use(express.static('public')); // Serve static files
 // MySQL connection
 const db = mysql.createConnection({
     host: 'localhost',
-    user: 'root', // Replace with your MySQL username
-    password: 'Jatin@1234', // Replace with your MySQL password
-    database: 'my_database' // Replace with your database name
+    user: 'root', 
+    password: 'Jatin@1234', 
+    database: 'my_database' 
 });
 
 // Connect to MySQL
@@ -25,12 +25,12 @@ db.connect((err) => {
     console.log('Connected to MySQL database!');
 });
 
-// Endpoint to create table dynamically
+// Endpoint to create table dynamically with an auto-increment ID column
 app.post('/create-table', (req, res) => {
     const { tableName, fields } = req.body;
 
-    // Generate SQL query from user input
-    let query = `CREATE TABLE ${tableName} (`;
+    // Generate SQL query for creating a table with an `id` column
+    let query = `CREATE TABLE ${tableName} (id INT AUTO_INCREMENT PRIMARY KEY, `;
     fields.forEach((field, index) => {
         query += `${field.name} ${field.type}`;
         if (index < fields.length - 1) query += ', ';
@@ -44,7 +44,7 @@ app.post('/create-table', (req, res) => {
             return res.status(500).send('Error creating table');
         }
 
-        // Fetch all table names to return as response
+        // Fetch all table names to return as a response
         db.query('SHOW TABLES', (err, tables) => {
             if (err) {
                 return res.status(500).send('Error fetching tables');
@@ -53,6 +53,7 @@ app.post('/create-table', (req, res) => {
         });
     });
 });
+
 
 // Endpoint to fetch table data and column names
 app.get('/get-table-data', (req, res) => {
@@ -100,21 +101,24 @@ app.post('/add-row', (req, res) => {
 });
 
 // Endpoint to delete a row by ID
-app.delete('/delete-row', (req, res) => {
-    const { tableName, rowId, idColumn } = req.body; // Expecting table name, row ID, and the name of the ID column
+app.delete('/delete-data/:tableName/:rowId', (req, res) => {
+    const { tableName, rowId } = req.params;
 
-    const query = `DELETE FROM ${tableName} WHERE ${idColumn} = ?`;
-
-    db.query(query, [rowId], (err, result) => {
+    // Validate inputs to prevent SQL injection
+    const query = `DELETE FROM ?? WHERE id = ?`;
+    db.query(query, [tableName, rowId], (err, results) => {
         if (err) {
             console.error('Error deleting row:', err);
             return res.status(500).send('Error deleting row');
         }
 
-        res.json({ message: 'Row deleted successfully', result });
+        if (results.affectedRows > 0) {
+            res.send('Row deleted successfully');
+        } else {
+            res.status(404).send('Row not found');
+        }
     });
 });
-
 
 
 
