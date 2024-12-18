@@ -11,9 +11,9 @@ app.use(express.static('public')); // Serve static files
 // MySQL connection
 const db = mysql.createConnection({
     host: 'localhost',
-    user: 'root', 
-    password: 'Jatin@1234', 
-    database: 'my_database' 
+    user: 'root',
+    password: 'Jatin@1234',
+    database: 'my_database'
 });
 
 // Connect to MySQL
@@ -116,6 +116,19 @@ app.delete('/delete-data/:tableName/:rowId', (req, res) => {
             res.send('Row deleted successfully');
         } else {
             res.status(404).send('Row not found');
+        }
+    });
+});
+
+
+// API endpoint to get table list
+app.get('/get-table-list', (req, res) => {
+    const query = 'SHOW TABLES'; // Query to fetch all tables
+    db.query(query, (err, result) => {
+        if (err) {
+            res.status(500).json({ error: err });
+        } else {
+            res.json(result); // Send the list of tables back to client
         }
     });
 });
